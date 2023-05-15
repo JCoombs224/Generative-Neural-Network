@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sqlite3.h> 
+#include <queue>
 
 using namespace std;
 
@@ -222,15 +223,32 @@ public:
         cout << endl;
     }
 
-
-    vector<double> get_output()
+    void run_generative(vector<double> inputs, int num_generations)
     {
-        vector<double> output;
-        for (int i = 0; i < structure[structure.size() - 1]; i++)
+        deque<double> input_queue;
+        double output;
+        cout << fixed;
+        // initialize input queue
+        for(int i = 0; i < structure[0]; i++)
         {
-            output.push_back(network[structure.size() - 1][i]->collector);
+            input_queue.push_back(inputs[i]);
         }
-        return output;
+        double x = 0;
+        for(int i = 0; i < num_generations; i++)
+        {
+            // load input queue into nn
+            feed_forward({input_queue.begin(), input_queue.end()});
+            output = get_output();
+            cout << setprecision(1) << "f(" << x << "): " << setprecision(4) << output << endl;
+            input_queue.pop_front();
+            input_queue.push_back(output);
+            x += 0.1;
+        }
+    }
+
+    double get_output()
+    {
+        return network[structure.size() - 1][0]->collector;
     }
 
     // save the weights to a file
@@ -266,7 +284,7 @@ int main()
 
     // generate inputs for the neural network incrementing by 0.1
     vector<vector<double>> inputs;
-    for(int i = -100; i < 100; i++)
+    for(int i = -400; i < 400; i++)
     {
         vector<double> input;
         for(double j = 0; j <= 1; j += 0.1)
@@ -277,7 +295,7 @@ int main()
     }
 
     // train the neural network
-    nn.train(inputs, 100000, 0.01, 0.4);
+    nn.train(inputs, 100000, 0.01, 0.2);
 
     // test the neural network with the inputs -1 through 0
     vector<double> input;
@@ -285,7 +303,7 @@ int main()
     {
         input.push_back(waveFunction(i));
     }
-    nn.run(input);
+    nn.run_generative(input, 200);
     
 
     return 0;
