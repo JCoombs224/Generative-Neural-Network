@@ -10,12 +10,6 @@
 
 using namespace std;
 
-// SQLite3 database variables
-sqlite3 *db;
-char *zErrMsg = 0;
-int rc;
-char *sql;
-
 struct Node
 {
     double collector;
@@ -38,6 +32,11 @@ struct Node
         this->collector = 0;
     }
 };
+
+double waveFunction(double x) 
+{
+    return (cos(x) + 1) * 0.5;
+}
 
 class NeuralNetwork
 {
@@ -179,37 +178,9 @@ public:
     }
 
     // train the neural network
-    void train(const char* query, int num_epochs, double target_error = 0.05, double l_rate = 0.1)
+    void train(vector<vector<double>> inputs, int num_epochs, double target_error = 0.05, double l_rate = 0.1)
     {
         int num_inputs = network[0].size();
-        inputs.clear();
-
-        // get the inputs from the database
-        sqlite3_stmt *stmt;
-        rc = sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
-        if (rc != SQLITE_OK)
-        {
-            fprintf(stderr, "SQL error: %s\n", zErrMsg);
-            sqlite3_free(zErrMsg);
-            return;
-        }
-
-        // push the inputs into the inputs vector
-        while (sqlite3_step(stmt) == SQLITE_ROW)
-        {
-            vector<double> input;
-            for (int i = 0; i < num_inputs; i++)
-            {
-                input.push_back(sqlite3_column_double(stmt, i));
-            }
-            for (int i = num_inputs; i < sqlite3_column_count(stmt); i++)
-            {
-                input.push_back(sqlite3_column_double(stmt, i));
-            }
-            this->inputs.push_back(input);
-        }
-        sqlite3_finalize(stmt);
-        sqlite3_close(db);
 
         cout << "Number of inputs = " << inputs.size() << endl;
         // train the network
@@ -289,52 +260,33 @@ int main()
 {
     // seed random number generator
     srand(time(NULL));
-
-    // Open database FOR UNIX REQUIRES: sudo apt install libsqlite3-dev
-    rc = sqlite3_open("hw_data_2", &db);
-
-    // Check if database opened correctly
-    if(rc)
-    {
-        fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-        return -1;
-    }
-    else
-    {
-        fprintf(stderr, "Opened database successfully\n");
-    }
     
     // create the neural network
     NeuralNetwork nn("network.csv");
 
-    // train the neural network with the given input until the error is less than .10
-
-    // training for letter A
-    // cout << "Training for letter a" << endl;
-    // nn.train("select * from a_train order by random() limit 1000;", 10000, 0.10, 0.1);
-
-    // training for letter B
-    // cout << "Training for letter b" << endl;
-    // nn.train("select * from b_train order by random();", 100, 0.10, 0.1);
-
-    // training for letter C
-    // cout << "Training for letter c" << endl;
-    // nn.train("select * from c_train order by random() limit 3000;", 10000, 0.10, 0.01);
-
-    // training for letter D
-    // cout << "Training for letter d" << endl;
-    // nn.train("select * from d_train order by random() limit 5000;", 10000, 0.10, 0.6);
-
-    // training for letter E
-    cout << "Training for letter e" << endl;
-    nn.train("select * from e_train order by random() limit 500;", 10000, 0.10, 0.5);
-
-    // print the output of the neural network
-    vector<double> output = nn.get_output();
-    for (int i = 0; i < output.size(); i++)
+    // generate inputs for the neural network incrementing by 0.1
+    vector<vector<double>> inputs;
+    for(int i = -100; i < 100; i++)
     {
-        cout << output[i] << endl;
+        vector<double> input;
+        for(double j = 0; j <= 1; j += 0.1)
+        {
+            input.push_back(waveFunction(i+j));
+        }
+        inputs.push_back(input);
     }
+
+    // train the neural network
+    nn.train(inputs, 100000, 0.01, 0.4);
+
+    // test the neural network with the inputs -1 through 0
+    vector<double> input;
+    for (double i = -1; i <= 0; i += 0.1)
+    {
+        input.push_back(waveFunction(i));
+    }
+    nn.run(input);
+    
 
     return 0;
 }
